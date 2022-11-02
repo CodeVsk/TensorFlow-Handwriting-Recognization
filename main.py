@@ -1,83 +1,75 @@
-#from tensorflow.keras.preprocessing.image import imageDataGenerator
-#from tensorflow.keras.preprocessing import image
-#from tensorflow.keras.optimizers import RMSprop
-
 import tensorflow as tf
-import matplotlib.pyplot as plt
 import cv2
 import os
 import numpy as np
 
+class HandwritingRecognition:
+    def __init__(self):
+        self.path = os.getcwd();
+        self.trainingPath = self.path+"/data/training";
+        self.testingPath = self.path+"/data/testing";
 
-path_training = "E:/Desenvolvimento/Deep Learning/version-2.0/data/training"
-path_testing = "E:/Desenvolvimento/Deep Learning/version-2.0/data/testing"
+    def import_datas(self):
+        self.training = tf.keras.preprocessing.image.ImageDataGenerator(rescale= 1/255);
+        self.validation = tf.keras.preprocessing.image.ImageDataGenerator(rescale= 1/255);
 
-img = tf.keras.preprocessing.image.load_img("./data/training/i/train_69_00001.png")
+        self.trainingData = self.training.flow_from_directory(self.trainingPath, target_size=(128,128), batch_size=3, class_mode='binary');
+        self.validationData = self.validation.flow_from_directory(self.testingPath, target_size=(128,128), batch_size=3, class_mode='binary');
 
-image = cv2.imread("./data/training/i/train_69_00001.png").shape
+    def create_model(self):
+        self.model = tf.keras.models.Sequential([
+            tf.keras.layers.Conv2D(16,(3,3), activation="relu",input_shape=(128,128,3)),
+            tf.keras.layers.MaxPool2D(2,2),
 
-training = tf.keras.preprocessing.image.ImageDataGenerator(rescale= 1/255)
+            tf.keras.layers.Conv2D(32,(3,3), activation="relu"),
+            tf.keras.layers.MaxPool2D(2,2),
 
-validation = tf.keras.preprocessing.image.ImageDataGenerator(rescale= 1/255)
+            tf.keras.layers.Conv2D(64,(3,3), activation="relu"),
+            tf.keras.layers.MaxPool2D(2,2),
 
-training_data = training.flow_from_directory("E:/Desenvolvimento/Deep Learning/version-2.0/data/training", target_size=(128,128),batch_size=3,class_mode='binary')
+            tf.keras.layers.Flatten(),
 
-validation_data = validation.flow_from_directory("data/testing/", target_size=(128,128),batch_size=3,class_mode='binary')
+            tf.keras.layers.Dense(512, activation='relu'),
 
-print(training_data.class_indices)
-print(training_data.classes)
+            tf.keras.layers.Dense(1, activation='sigmoid')
+        ]);
 
-model = tf.keras.models.Sequential([
-    tf.keras.layers.Conv2D(16,(3,3), activation="relu",input_shape=(128,128,3)),
-    tf.keras.layers.MaxPool2D(2,2),
+    def compile_model(self):
+        self.model.compile(loss='binary_crossentropy',
+            optimizer=tf.keras.optimizers.RMSprop(learning_rate=0.0001),
+            metrics=['accuracy']
+        );
 
-    tf.keras.layers.Conv2D(32,(3,3), activation="relu"),
-    tf.keras.layers.MaxPool2D(2,2),
+    def training_model(self):
+        self.modelFit = self.model.fit(self.trainingData,
+            steps_per_epoch=3,
+            epochs=10,
+            validation_data=self.validationData
+        );
 
-    tf.keras.layers.Conv2D(64,(3,3), activation="relu"),
-    tf.keras.layers.MaxPool2D(2,2),
+    def predict_image(self):
+        for el in os.listdir("{}/testing".format(self.testingPath)):
+            self.image = tf.keras.preprocessing.image.load_img("{}/testing/{}".format(self.testingPath, el));
 
-    tf.keras.layers.Flatten(),
+            self.X = tf.keras.preprocessing.image.img_to_array(self.image);
+            self.X = np.expand_dims(self.X, axis=0);
 
-    tf.keras.layers.Dense(512, activation='relu'),
+            self.imageTesting = np.vstack([self.X]);
 
-    tf.keras.layers.Dense(1, activation='sigmoid')
-])
+            self.predict = self.model.predict(self.imageTesting);
 
-model.compile(loss='binary_crossentropy',
-    optimizer=tf.keras.optimizers.RMSprop(learning_rate=0.0001),
-    metrics=['accuracy']
-)
+            self.print_result();
 
-model_fit = model.fit(training_data,
-    steps_per_epoch=3,
-    epochs=10,
-    validation_data=validation_data
-)
+    def print_result(self):
+        if self.predict == 0:
+            print("Imagem Analisada\nResultado: Letra 'i' localizada");
+        else:
+            print("Imagem Analisada\nResultado: Letra 'i' não localizada");
 
-for i in os.listdir(path_testing+"/i"):
-    img_testing = tf.keras.preprocessing.image.load_img(path_testing+"/i/"+i)
 
-    X = tf.keras.preprocessing.image.img_to_array(img_testing)
-    X = np.expand_dims(X, axis=0)
-
-    img_testings = np.vstack([X])
-
-    predict = model.predict(img_testings)
-
-    if predict == 0:
-        print("""
-
-Imagem Analisada
-Resultado: Letra 'i' localizada
-
-        """
-        )
-    else:
-        print("""
-        
-Imagem Analisada
-Resultado: Letra 'i' não localizada
-
-        """
-        )
+hr = HandwritingRecognition();
+hr.import_datas();
+hr.create_model();
+hr.compile_model();
+hr.training_model();
+hr.predict_image();
